@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import heapq
 import time
+from itertools import permutations
 
 regions_color_and_cost = {
     # intervalo de cores HSV para garantir que a cor seja capturada
@@ -14,12 +15,12 @@ regions_color_and_cost = {
 }
 
 group_positions = {
-    "E": ((6, 40), -1),   # Eleven 
-    "D": ((5, 7), -2),    # Dustin
-    "L": ((20, 10), -3),  # Lucas
-    "M": ((17, 37), -4),  # Mike
-    "W": ((30, 11), -5),  # Will
-    "L": ((41, 40), 4)    # Leave (exit)
+    "E": ((6, 40), 1),   # Eleven 
+    "D": ((5, 7), 1),    # Dustin
+    "L": ((20, 10), 1),  # Lucas
+    "M": ((17, 37), 1),  # Mike
+    "W": ((30, 11), 1),  # Will
+    "X": ((41, 40), 1)    # Leave (exit)
 }
 
 def proccess_imagem(image_path, regions=regions_color_and_cost, group_positions=group_positions):
@@ -66,17 +67,6 @@ def print_manhattan_distance_rescue(group_positions=group_positions):
         distance = manhattan_distance(start, position)
         print(f"Distância Manhattan de E até a {name}: {distance}")
 
-def best_path(matrix, group_positions=group_positions):
-    # abordagem gulosa
-    # calcular a distância manhattan da Eleven até os personagens
-    # escolher o personagem mais próximo
-    # após resgatar o personagem mais próximo, recalcular a distância manhattan para o mais próximo
-
-    # aboragem similar ao caixeiro viajante (vizinho mais próximo)
-    # 
-    pass
-
-
 def node_path(path_to_goal, node):
     path = [node] #começa com o nó objetivo
 
@@ -84,6 +74,48 @@ def node_path(path_to_goal, node):
         node = path_to_goal[node] #nó anteior
         path.append(node) #adiciona o nó anterior
     return path[::-1]
+
+def pairs_path_cost(matrix, positions=group_positions):
+    costs = {}
+    for name, (pos, _) in positions.items():
+        for name2, (pos2, _) in positions.items():
+            if name == name2:
+                continue
+            cost, path = A_star_search(pos, pos2, matrix)
+            costs[(name, name2)] = cost
+            print(f"Custo de {name} até {name2}: {cost}")
+    return costs
+
+def find_best_path(matrix, positions=group_positions):
+    nodes_to_explore = {}
+    start = 'E'
+    end = 'X'
+    current_cost = 0
+    best_path = None
+    min_cost = float('inf')
+
+    pairs_cost = pairs_path_cost(matrix, positions)
+
+    for name, (pos, _) in positions.items():
+        if name == 'E' or name == 'X':
+            continue
+        nodes_to_explore[name] = pos
+
+    #permutations() retorna todos os possíveis pares de elementos
+    for perm in permutations(nodes_to_explore.keys()):
+        current_path = [start] + list(perm) + [end]
+        #print(current_path)
+        #print(pairs_cost)
+        for character in range(len(current_path) -1):
+            #acumulando o custo de cadas nó do caminho
+            current_cost += pairs_cost[(current_path[character], current_path[character+1])]
+        
+        if current_cost < min_cost:
+            min_cost = current_cost
+            best_path = current_path
+
+    print(f"Melhor caminho: {best_path}")
+    print(f"Custo do melhor caminho: {min_cost}")
 
 def A_star_search(start, goal, matrix):
     # Inicialização 
@@ -115,9 +147,9 @@ def A_star_search(start, goal, matrix):
         #retira o nó com menor f(n)  da fila
         
         cost, node = heapq.heappop(heapq_list)
-        print("\33[40m***********************************\33[0m")
-        print(f"\33[40m\033[1mExplorando o nó \033[96m{node}\33[0m\33[40m\033[1mcom custo \033[96m{cost}\33[0m")
-        print("\33[40m***********************************\33[0m")
+        print("\n\33[40m****************************************\33[0m")
+        print(f"\33[40m\033[1m   Explorando o nó \033[96m{node}\33[0m\33[40m\033[1mcom custo \033[96m{cost}   \33[0m")
+        print("\33[40m****************************************\33[0m")
 
         #verifica se o nó já foi visitado
         if node in node_visited:
@@ -127,11 +159,18 @@ def A_star_search(start, goal, matrix):
 
         #verifica se é o nó objetivo
         if node == goal:
+            path_cost = 0
             print(f"\n\033[42mAchamos o nó objetivo!\33[0m")
             print(f"\nQuantidade de nós percorridos: {len(node_visited)}")
             path = node_path(path_to_goal, node)
             print(f"\nCaminho de {start} até {node}:\n{path}")
-            return 
+
+            for node in path:
+                row = node[0]
+                col = node[1]
+                path_cost += matrix[row][col]
+
+            return path_cost, path
 
         #expanda os nós vizinhos
         for row, col in moves:
@@ -139,13 +178,13 @@ def A_star_search(start, goal, matrix):
             neighbor = (node[0] + row, node[1] + col)
 
             #verifica se a linha e coluna estão dentro da matriz
-            if not((neighbor[0] > 0 or neighbor[0] < matrix.shape[0]) or (neighbor[1] > 0 or neighbor[1] <= matrix.shape[1])):
-                print(f"\n\33[31mVizinho {neighbor} fora dos limites\33[0m\n")
+            if not((0 <= neighbor[0] <= matrix.shape[0] - 1) and (0 <= neighbor[1] <= matrix.shape[1] - 1)):
+                print(f"\n\33[31mVizinho {neighbor} fora dos limites\33[0m")
                 continue
             
             #verifica se é parede
             if matrix[neighbor] == 0:
-                print(f"\n\33[31mVizinho {neighbor} é parede\33[0m\n")
+                print(f"\n\33[31mVizinho {neighbor} é parede\33[0m")
                 continue
 
             #calcula o g(n) 
@@ -153,7 +192,7 @@ def A_star_search(start, goal, matrix):
 
             #verifica se o vizinho já foi visitado e o custo não é melhor, ignore
             if neighbor in node_visited and g_node_score >= G_path_cost.get(neighbor, 0):
-                print(f"\n\33[31mVizinho {neighbor} já visitado ou custo não é melhor\33[0m\n")
+                print(f"\n\33[31mVizinho {neighbor} já visitado ou custo não é melhor\33[0m")
                 continue
             
             #atualiza o custo do nó e adiciona na fila
@@ -168,14 +207,11 @@ def A_star_search(start, goal, matrix):
                 print(f"g(n) = {G_path_cost[node]} + {matrix[neighbor]} = {g_node_score}")
                 print(f"f(n) = {g_node_score} + {manhattan_distance(neighbor, goal)} = {F_total_cost[neighbor]}")
                 print("Fila de prioridade: ", heapq_list)
-                #print("Caminho: ", path_to_goal)
-            time.sleep(2)
+        #time.sleep(2)
 
 image_path = "img/mapa_laboratorio.png"
 matrix = proccess_imagem(image_path)
 
 np.savetxt("mapa_laboratorio.txt", matrix, fmt="%d")
 
-print_manhattan_distance_rescue()
-
-A_star_search((6, 40), ((17, 37)), matrix)
+find_best_path(matrix)
