@@ -18,7 +18,7 @@ group_positions = {
     "L": ((20, 10), 1),  # Lucas
     "M": ((17, 37), 1),  # Mike
     "W": ((30, 11), 1),  # Will
-    "X": ((41, 40), 1)   # Exit
+    "X": ((41, 40), 4)   # Exit
 }
 
 image_path = "img/mapa_laboratorio.png"
